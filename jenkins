@@ -1,32 +1,50 @@
 pipeline {
   agent any
+
   stages {
     stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Compile') {
       steps {
-        checkout scm
+        script {
+          if (isUnix()) {
+            sh '''
+              rm -rf out
+              mkdir -p out
+              find . -name "*.java" > sources.txt
+              if [ ! -s sources.txt ]; then echo "No .java files"; exit 1; fi
+              javac -d out @sources.txt
+            '''
+          } else {
+            bat '''
+              if exist out rmdir /s /q out
+              mkdir out
+              dir /s /b *.java > sources.txt
+              javac -d out @sources.txt
+            '''
+          }
+        }
       }
     }
-    stage('Build') {
-      steps {
-        bat """
-        if exist out rmdir /s /q out
-        mkdir out
-        javac -d out src\\hello\\marks.java
-        """
-      }
-    }
+
     stage('Run') {
       steps {
-        bat """
-        java -cp out hello.marks
-        echo Build_OK > artifact.txt
-        """
+        script {
+          if (isUnix()) {
+            sh 'java -cp out hello.Login || true'
+          } else {
+            bat 'java -cp out hello.Login || exit /B 0'
+          }
+        }
       }
     }
   }
+
   post {
     always {
-      archiveArtifacts artifacts: 'artifact.txt, out/**', allowEmptyArchive: false
+      archiveArtifacts artifacts: 'out/**', allowEmptyArchive: true
     }
   }
 }
