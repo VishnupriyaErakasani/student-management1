@@ -1,0 +1,49 @@
+pipeline {
+  agent any
+  tools {
+    jdk 'jdk11'      // configure this name in Jenkins > Global Tool Configuration
+  }
+  stages {
+    stage('Checkout') { steps { checkout scm } }
+
+    stage('Compile') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh '''
+              rm -rf out
+              mkdir -p out
+              find . -name "*.java" > sources.txt
+              javac -d out @sources.txt
+            '''
+          } else {
+            bat '''
+              if exist out rmdir /s /q out
+              mkdir out
+              dir /s /b *.java > sources.txt
+              javac -d out @sources.txt
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Run') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'java -cp out hello.Login'
+          } else {
+            bat 'java -cp out hello.Login'
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'out/**', allowEmptyArchive: true
+    }
+  }
+}
